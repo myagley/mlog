@@ -49,11 +49,11 @@ impl Header {
             .context(ErrorKind::ReadHeader)?;
 
         let start = LogIndex {
-            idx: start_idx as usize,
+            idx: start_idx,
             len: len as usize,
         };
         let end = LogIndex {
-            idx: end_idx as usize,
+            idx: end_idx,
             len: len as usize,
         };
 
@@ -62,27 +62,37 @@ impl Header {
     }
 
     fn write<W: Write>(&self, writer: &mut W) -> Result<(), Error> {
-        writer.write_u32::<BigEndian>(MAGIC).context(ErrorKind::WriteHeader)?;
-        writer.write_u32::<BigEndian>(VERSION.into()).context(ErrorKind::WriteHeader)?;
-        writer.write_u64::<BigEndian>(self.len).context(ErrorKind::WriteHeader)?;
-        writer.write_u64::<BigEndian>(self.start.logical() as u64).context(ErrorKind::WriteHeader)?;
-        writer.write_u64::<BigEndian>(self.end.logical() as u64).context(ErrorKind::WriteHeader)?;
+        writer
+            .write_u32::<BigEndian>(MAGIC)
+            .context(ErrorKind::WriteHeader)?;
+        writer
+            .write_u32::<BigEndian>(VERSION.into())
+            .context(ErrorKind::WriteHeader)?;
+        writer
+            .write_u64::<BigEndian>(self.len)
+            .context(ErrorKind::WriteHeader)?;
+        writer
+            .write_u64::<BigEndian>(self.start.logical() as u64)
+            .context(ErrorKind::WriteHeader)?;
+        writer
+            .write_u64::<BigEndian>(self.end.logical() as u64)
+            .context(ErrorKind::WriteHeader)?;
         Ok(())
     }
 }
 
 struct LogIndex {
-    idx: usize,
+    idx: u64,
     len: usize,
 }
 
 impl LogIndex {
-    fn logical(&self) -> usize {
+    fn logical(&self) -> u64 {
         self.idx
     }
 
     fn physical(&self) -> usize {
-        self.idx % self.len
+        (self.idx % self.len as u64) as usize
     }
 }
 
@@ -117,7 +127,7 @@ mod tests {
     use std::io::Cursor;
 
     quickcheck! {
-        fn test_logindex(idx: usize, len: usize) -> TestResult {
+        fn test_logindex(idx: u64, len: usize) -> TestResult {
             if len == 0 {
                 TestResult::discard()
             } else {
@@ -125,7 +135,7 @@ mod tests {
                     idx,
                     len,
                 };
-                TestResult::from_bool(i.physical() <= i.logical() && i.physical() < i.len)
+                TestResult::from_bool(i.physical() as u64 <= i.logical() && i.physical() < i.len)
             }
         }
     }
